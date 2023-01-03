@@ -1,0 +1,80 @@
+version: "3.7"
+volumes:
+        postgres-data:
+        redis-data:
+        geoserver-data:
+networks:
+  frontend:
+  backend:
+
+services:
+# nginx proxy service (based on nginx official image) to act as a web server and proxy server
+    proxy:
+        image: nginx:latest
+# map local port 8080 to containers's port 80
+        ports:
+            - "80:80"
+          
+# map the current directory to /var/www/app in the container
+# and map our the nginx-site.conf to the nginx default site in the container
+        volumes:
+            - ./aplikasi/:/var/www/app
+            - ./docker/nginx/nginx-site.conf:/etc/nginx/conf.d/default.conf
+        networks:
+            - frontend
+            - backend
+# php-fpm service (based on php official image) to process our php code 
+    php:
+        build:
+         context: ./docker/php
+         dockerfile: Dockerfile
+        image: laravelgis-php:latest
+# map the current directory to /var/www/app in the container (the same as for the proxy service)
+        volumes:
+            - ./aplikasi/:/var/www/app
+        networks:
+            - backend
+# the postgres service using the latest official image, it also maps the postgres-data volume
+# # to /var/lib/postgresql/data in the container, maps the local port 5432 to the container 
+# # port 5432 and specifies the database, user and password to use (they will be created the first time
+# # the container is run).
+    postgres:
+#       image: postgres:latest #if using default postgres
+       image: postgis/postgis:15-3.3
+       volumes:
+           - postgres-data:/var/lib/postgresql/data
+       ports:
+               #sebelumupload ganti
+           - "5433:5432"
+       environment:
+           POSTGRES_PASSWORD: xcWI3128
+           POSTGRES_USER: laravelgis
+           POSTGRES_DB: laravelgis
+           PGDATA: /var/lib/postgresql/data
+       networks:
+           - backend
+# # the redis service using the latest official image and mapping the redis-data volume to
+# /data in the container as well as local port 6379 to container port 6379.
+    redis:
+       image: redis:latest
+       sysctls:
+           - net.core.somaxconn=511
+       ports:
+           - "6379:6379"
+       volumes:
+           - redis-data:/data
+       networks:
+           - backend
+   
+    geoserver:
+         image: kartoza/geoserver:latest
+         ports:
+             - "8080:8080"
+         volumes:
+             - geoserver-data:/opt/geoserver/data_dir
+         environment:
+             GEOSERVER_DATA_DIR: /opt/geoserver/data_dir
+             GEOSERVER_ADMIN_USER: admin
+             GEOSERVER_ADMIN_PASSWORD: xcWI3128
+         networks:
+             - backend
